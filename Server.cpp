@@ -20,7 +20,7 @@ using namespace std;
 
 // Function to close the specified socket and perform DLL cleanup (WSACleanup)
 void cleanup(SOCKET socket);
-void createFile(char* machineID, int serialNumber, bool activation);
+void updateFile(char* machineID, int serialNumber, bool activation);
 
 int main(int argc, char* argv[])
 {
@@ -33,14 +33,11 @@ int main(int argc, char* argv[])
 	else
 		port = DEFAULTPORT;
 	string machineIDstring;
-	char machineID[20] = "abc";
-	int serialNumber = 123;
-	bool activation;
+	char machineID[20] = "abd";
+	int serialNumber = 122;
+	bool activation = true;
 
-	createFile(machineID, serialNumber, activation);
-
-	
-
+	updateFile(machineID, serialNumber, activation);
 	return 0;
 }
 
@@ -53,24 +50,17 @@ void cleanup(SOCKET socket)
 	WSACleanup();
 }
 
-void createFile(char* machineID, int serialNumber, bool activation)
+void updateFile(char* machineID, int serialNumber, bool activation)
 {
-	FILE *dataFile;
-
+	
 	if (activation)
 	{
-		if (dataFile = fopen("dataFile.txt", "r+"))
-		{
-
-		}
-		else
-		{
-			dataFile = fopen("dataFile.txt", "w");
-		}
-		fprintf(dataFile, "%d", serialNumber);
-		fputs("\n", dataFile);
-		fputs(machineID, dataFile);
-		fputs("\n", dataFile);
-		fclose(dataFile);
+		std::ofstream dataFile;
+		dataFile.open("dataFile.txt", std::ofstream::out | std::ofstream::app);
+		dataFile << serialNumber;
+		dataFile << "\n";
+		dataFile << machineID;
+		dataFile << "\n";
+		dataFile.close();
 	}
 }
