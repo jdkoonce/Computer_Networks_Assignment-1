@@ -59,9 +59,9 @@ void createFile(char *machineID, bool activation)
 
 	if (activation)
 	{
-		FILE* actFile = fopen("actFile.txt", "w");
-
-		fputs(machineID,actFile);
+		FILE* actFile = NULL;
+		errno_t err = fopen_s(&actFile, "actFile.txt", "w");
+		fputs(machineID, actFile);
 		fclose(actFile);
 	}
 }
