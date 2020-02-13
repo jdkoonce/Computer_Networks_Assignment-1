@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 		port = DEFAULTPORT;
 	string machineIDstring;
 	bool activation = true;
-	cout << "Enter your machine id: ";
+	cout << "Enter your machine id: \n";
 	getline(cin, machineIDstring);
 	char* machineID = new char[machineIDstring.length() + 1];
 	std::strcpy(machineID, machineIDstring.c_str());
