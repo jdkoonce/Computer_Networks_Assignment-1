@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+
 using namespace std;
 
 // Make sure build environment links to Winsock library file
@@ -20,47 +21,48 @@ using namespace std;
 
 // Function to close the specified socket and perform DLL cleanup (WSACleanup)
 void cleanup(SOCKET socket);
-void updateFile(char* machineID, int serialNumber, bool activation);
 
-int main(int argc, char* argv[])
+void updateFile(char *machineID, int serialNumber, bool activation);
+
+int main(int argc, char *argv[])
 {
-	int port;
+    int port;
 
-	// If user types in a port number on the command line use it,
-	// otherwise, use the default port number
-	if (argc > 1)
-		port = atoi(argv[1]);
-	else
-		port = DEFAULTPORT;
-	string machineIDstring;
-	char machineID[20] = "abd";
-	int serialNumber = 122;
-	bool activation = true;
+    // If user types in a port number on the command line use it,
+    // otherwise, use the default port number
+    if (argc > 1)
+        port = atoi(argv[1]);
+    else
+        port = DEFAULTPORT;
+    string machineIDstring;
+    char machineID[20] = "abd";
+    int serialNumber = 122;
+    bool activation = true;
 
-	updateFile(machineID, serialNumber, activation);
-	return 0;
+    updateFile(machineID, serialNumber, activation);
+    return 0;
 }
 
 
 void cleanup(SOCKET socket)
 {
-	if (socket != INVALID_SOCKET)
-		closesocket(socket);
+    if (socket != INVALID_SOCKET)
+        closesocket(socket);
 
-	WSACleanup();
+    WSACleanup();
 }
 
-void updateFile(char* machineID, int serialNumber, bool activation)
+void updateFile(char *machineID, int serialNumber, bool activation)
 {
-	
-	if (activation)
-	{
-		std::ofstream dataFile;
-		dataFile.open("dataFile.txt", std::ofstream::out | std::ofstream::app);
-		dataFile << serialNumber;
-		dataFile << "\n";
-		dataFile << machineID;
-		dataFile << "\n";
-		dataFile.close();
-	}
+
+    if (activation)
+    {
+        std::ofstream dataFile;
+        dataFile.open("dataFile.txt", std::ofstream::out | std::ofstream::app);
+        dataFile << serialNumber;
+        dataFile << "\n";
+        dataFile << machineID;
+        dataFile << "\n";
+        dataFile.close();
+    }
 }
