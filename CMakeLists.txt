@@ -3,5 +3,5 @@ project(activation)               # Create project "activation"
 set(CMAKE_CXX_STANDARD 17)            # Enable c++17 standard
 
 # Add executable target with source files listed in SOURCE_FILES variable
-add_executable(Client.exe Client.cpp)
-add_executable(Server.exe Server.cpp)
+add_executable(Client Client.cpp)
+add_executable(Server Server.cpp)

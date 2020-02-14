@@ -4,11 +4,13 @@
 #include <string>
 #include <fstream>
 
-using namespace std;
+using std::string;
+using std::cout;
+using std::cin;
+using std::cerr;
 
 // Make sure build environment links to Winsock library file
 #pragma comment(lib, "Ws2_32.lib")
-
 
 // Define default global constants
 #define BUFFERSIZE 256
@@ -20,9 +22,14 @@ using namespace std;
 
 
 // Function to close the specified socket and perform DLL cleanup (WSACleanup)
-void cleanup(SOCKET socket);
 
-void updateFile(char *machineID, int serialNumber, bool activation);
+int initNetworking();
+
+void activate(const string machineId);
+
+string checkSerialActivation(int serialNumber);
+
+void cleanup(SOCKET socket);
 
 int main(int argc, char *argv[])
 {
@@ -34,16 +41,44 @@ int main(int argc, char *argv[])
         port = atoi(argv[1]);
     else
         port = DEFAULTPORT;
+
+    auto initCode = initNetworking();
+
+    if (initCode != 0)
+    {
+        cout << "An error occurred while initializing networking! We cannot continue, sorry." << std::endl;
+        return initCode;
+    }
+
     string machineIDstring;
     char machineID[20] = "abd";
     int serialNumber = 122;
     bool activation = true;
 
-    updateFile(machineID, serialNumber, activation);
     return 0;
 }
 
+/**
+ * Initializes WSA for networking.
+ */
+int initNetworking()
+{
+    // WSAStartup loads WS2_32.dll (Winsock version 2.2) used in network programming
+    WSADATA wsaData;
+    auto iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (iResult != 0)
+    {
+        std::cerr << "WSAStartup failed with error: " << iResult << std::endl;
+        return 1;
+    }
 
+    return 0;
+}
+
+/**
+ * Cleanup the socket.
+ * @param socket
+ */
 void cleanup(SOCKET socket)
 {
     if (socket != INVALID_SOCKET)
@@ -52,17 +87,29 @@ void cleanup(SOCKET socket)
     WSACleanup();
 }
 
-void updateFile(char *machineID, int serialNumber, bool activation)
+/**
+ * Activates a client.
+ * @param machineId The machineId of the client
+ * @param serialNumber The client's serial number
+ */
+void activate(string machineId, int serialNumber)
 {
-
-    if (activation)
-    {
-        std::ofstream dataFile;
-        dataFile.open("dataFile.txt", std::ofstream::out | std::ofstream::app);
-        dataFile << serialNumber;
-        dataFile << "\n";
-        dataFile << machineID;
-        dataFile << "\n";
-        dataFile.close();
-    }
+    std::ofstream dataFile;
+    dataFile.open(DATAFILENAME, std::ofstream::out | std::ofstream::app);
+    dataFile << serialNumber;
+    dataFile << "\n";
+    dataFile << machineId;
+    dataFile << "\n";
+    dataFile.close();
 }
+
+/**
+ * Checks if a serialNumber has been activated or not.
+ * @param serialNumber The serialNumber that is being checked.
+ * @return the machineId or null if the serial hasn't been activated yet.
+ */
+string checkSerialActivation(int serialNumber)
+{
+    return "";
+}
+
