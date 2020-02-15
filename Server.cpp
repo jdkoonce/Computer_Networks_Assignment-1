@@ -25,7 +25,7 @@ using std::cerr;
 
 int initNetworking();
 
-SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port);
+SOCKET makeSocket(SOCKADDR_IN& serverAddr, int port);
 
 void activate(const string machineId);
 
@@ -33,7 +33,7 @@ string checkSerialActivation(int serialNumber);
 
 void cleanup(SOCKET socket);
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     SOCKADDR_IN serverAddr;
     char buffer[BUFFERSIZE];
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
                     moreData = false;
 
                 // Concatenate received data onto end of string we're building
-                serialNumber = serialNumber + (string) buffer;
+                serialNumber = serialNumber + (string)buffer;
             }
             else if (iResult == 0)
             {
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
                     moreData = false;
 
                 // Concatenate received data onto end of string we're building
-                machineId = machineId + (string) buffer;
+                machineId = machineId + (string)buffer;
             }
             else if (iResult == 0)
             {
@@ -185,7 +185,7 @@ int initNetworking()
     return 0;
 }
 
-SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
+SOCKET makeSocket(SOCKADDR_IN& serverAddr, int port)
 {
     // Create a new socket for communication with the server
     auto theSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -203,7 +203,7 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
     inet_pton(AF_INET, IPADDRESS, &serverAddr.sin_addr);
 
     // Attempt to bind a the local network address to the socket
-    auto iResult = bind(theSocket, (SOCKADDR *) &serverAddr, sizeof(serverAddr));
+    auto iResult = bind(theSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr));
     if (iResult == SOCKET_ERROR)
     {
         cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
@@ -248,7 +248,32 @@ void activate(int serialNumber, string machineId)
  * @param serialNumber The serialNumber that is being checked.
  * @return the machineId or null if the serial hasn't been activated yet.
  */
-string checkSerialActivation(int serialNumber)
+string checkSerialActivation(string serialNumber)
 {
-    return "";
+    std::ifstream dataFile(DATAFILENAME);
+    //File doesn't exist, no check needed.
+    if (dataFile.fail())
+    {
+        dataFile.close();
+        return "null";
+    }
+
+    string contents;
+    if (dataFile.is_open())
+    {
+        string line;
+        while (getline(dataFile, line))
+        {
+            contents = line;
+            if (contents == serialNumber)
+            {
+                getline(dataFile, line);
+                dataFile.close();
+                string machineId = line;
+                return machineId;
+            }
+        }
+        dataFile.close();
+        return "NULL";
+    }
 }
