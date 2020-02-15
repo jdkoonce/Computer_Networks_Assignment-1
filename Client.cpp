@@ -13,12 +13,12 @@ using std::cerr;
 #pragma comment(lib, "Ws2_32.lib")
 
 // Define default global constants
-#define BUFFERSIZE 256
-#define ACTIVATIONFILENAME "actFile.txt"
-#define IPADDRESS "127.0.0.1"
-#define GOODMSG "good"
-#define BADMSG "invalid"
-#define DEFAULTPORT 6000
+#define BUFFER_SIZE 256
+#define ACTIVATION_FILENAME "actFile.txt"
+#define IP_ADDRESS "127.0.0.1"
+#define GOOD_MSG "good"
+#define BAD_MSG "invalid"
+#define DEFAULT_PORT 6000
 
 
 // Function to close the specified socket and perform DLL cleanup (WSACleanup)
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     if (argc > 1)
         port = atoi(argv[1]);
     else
-        port = DEFAULTPORT;
+        port = DEFAULT_PORT;
 
     // Checking if the software is activated....
     string machineId;
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
             sendString(serverConnection, serialNumstring);
 
             auto serialResponse = receiveString(serverConnection);
-            if (serialResponse != GOODMSG)
+            if (serialResponse != GOOD_MSG)
             {
                 // Oops.
                 onActivationFailed(serverConnection);
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
             sendString(serverConnection, machineId);
 
             auto activationResponse = receiveString(serverConnection);
-            if (activationResponse != GOODMSG)
+            if (activationResponse != GOOD_MSG)
             {
                 // Oops.
                 onActivationFailed(serverConnection);
@@ -115,9 +115,9 @@ int main(int argc, char *argv[])
             activate(machineId);
             cout << "The client has been successfully activated!" << std::endl;
         }
-        catch (string ex)
+        catch (std::exception &ex)
         {
-            cerr << ex << std::endl;
+            cerr << ex.what() << std::endl;
             // We weren't able to communicate with the server for some reason. Let's cleanup and leave.
 
             cleanup(serverConnection);
@@ -168,7 +168,7 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
     //***Attempting to connect***
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
-    inet_pton(AF_INET, IPADDRESS, &serverAddr.sin_addr);
+    inet_pton(AF_INET, IP_ADDRESS, &serverAddr.sin_addr);
 
     // Try to connect to server
     auto iResult = connect(theSocket, (SOCKADDR *) &serverAddr, sizeof(serverAddr));
@@ -184,23 +184,20 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
 
 string receiveString(SOCKET connection)
 {
-    char buffer[BUFFERSIZE];
+    char buffer[BUFFER_SIZE];
     bool moreData = false;
     string receiveString;
 
-    buffer[BUFFERSIZE - 1] = '\0';
+    buffer[BUFFER_SIZE - 1] = '\0';
 
     do
     {
-        auto iResult = recv(connection, buffer, BUFFERSIZE - 1, 0);
+        auto iResult = recv(connection, buffer, BUFFER_SIZE - 1, 0);
 
         if (iResult > 0)
         {
             // Received data; need to determine if there's more coming
-            if (buffer[iResult - 1] != '\0')
-                moreData = true;
-            else
-                moreData = false;
+            moreData = buffer[iResult - 1] != '\0';
 
             // Concatenate received data onto end of string we're building
             receiveString = receiveString + (string) buffer;
@@ -208,11 +205,11 @@ string receiveString(SOCKET connection)
         else if (iResult == 0)
         {
             // Need to close clientSocket; listenSocket was already closed
-            throw "Connection closed!\n";
+            throw std::exception("Connection closed!\n");
         }
         else
         {
-            throw "Recv failed with error: " + std::to_string(WSAGetLastError()) + "\n";
+            throw std::exception(("Recv failed with error: " + std::to_string(WSAGetLastError()) + "\n").c_str());
         }
     } while (moreData);
 
@@ -224,7 +221,7 @@ void sendString(SOCKET connection, const string &toSend)
     auto iResult = send(connection, toSend.c_str(), (int) toSend.size() + 1, 0);
     if (iResult == SOCKET_ERROR)
     {
-        throw "Send failed with error: " + std::to_string(WSAGetLastError()) + "\n";
+        throw std::exception(("Send failed with error: " + std::to_string(WSAGetLastError()) + "\n").c_str());
     }
 }
 
@@ -251,7 +248,6 @@ void activate(const string &machineId)
     actFile.close();
 }
 
-
 /**
  * Checks if the client has been activated or not.
  * @param machineId
@@ -259,7 +255,7 @@ void activate(const string &machineId)
  */
 bool checkActivation(const string &machineId)
 {
-    std::ifstream actFile(ACTIVATIONFILENAME);
+    std::ifstream actFile(ACTIVATION_FILENAME);
 
     //File doesn't exist, client needs activation
     if (actFile.fail())
