@@ -43,12 +43,8 @@ string trim(const string &str);
 int main(int argc, char *argv[])
 {
     SOCKADDR_IN serverAddr;            // structure to hold server address information
-    char buffer[BUFFERSIZE];    // buffer to hold message received from server
     string serialNumstring;         // serial number from user
-    int iResult;            // resulting code from socket functions
     int port;                // server's port number
-    bool done;                // variable to control communication loop
-    bool moreData;            // variable to control receive data loop
     SOCKET serverConnection;
 
     // If user types in a port number on the command line use it,
@@ -89,15 +85,7 @@ int main(int argc, char *argv[])
             return INVALID_SOCKET;
         }
 
-        //***Connected***
-        // Do activation
-
-        // Always make sure there's a '\0' at the end of the buffer
-        buffer[BUFFERSIZE - 1] = '\0';
-
-        done = false;
-
-        //Get the serial number from the user and send it to the server.
+        // Get the serial number from the user and send it to the server.
         cout << "Enter your serial number: \n";
         getline(cin, serialNumstring);
 
