@@ -58,7 +58,11 @@ int main(int argc, char *argv[])
     string machineId;
 
     cout << "Enter your machine id: \n";
-    getline(cin, machineId);
+    if (!getline(cin, machineId))
+    {
+        cout << "An error occurred! We cannot continue, sorry!" << std::endl;
+        return 1;
+    }
 
     // Clean user input
     machineId = trim(machineId);
@@ -87,7 +91,12 @@ int main(int argc, char *argv[])
 
         // Get the serial number from the user and send it to the server.
         cout << "Enter your serial number: \n";
-        getline(cin, serialNumstring);
+        if (!getline(cin, serialNumstring))
+        {
+            cout << "An error occurred! We cannot continue, sorry!" << std::endl;
+            WSACleanup();
+            return 1;
+        }
 
         try
         {
@@ -170,7 +179,7 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
     serverAddr.sin_port = htons(port);
     inet_pton(AF_INET, IP_ADDRESS, &serverAddr.sin_addr);
 
-    // Try to connect to server
+    // Try to connect to the server
     auto iResult = connect(theSocket, (SOCKADDR *) &serverAddr, sizeof(serverAddr));
     if (iResult == SOCKET_ERROR)
     {
