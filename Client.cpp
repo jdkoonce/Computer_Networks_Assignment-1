@@ -28,7 +28,7 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port);
 
 void activate(const string machineId);
 
-bool checkActivation(string machineId);
+bool checkActivation(const string machineId);
 
 void cleanup(SOCKET socket);
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     getline(cin, machineId);
 
     // Clean user input
-    trim(machineId);
+    machineId = trim(machineId);
 
     //Run the activation check
     if (!checkActivation(machineId))
@@ -74,14 +74,16 @@ int main(int argc, char *argv[])
         }
 
         // Create the socket
-        auto theSocket = makeSocket(serverAddr, port);
-        if (theSocket == INVALID_SOCKET)
+        auto clientSocket = makeSocket(serverAddr, port);
+        if (clientSocket == INVALID_SOCKET)
         {
             cout << "An error occurred while creating a socket! We cannot continue, sorry." << std::endl;
             return INVALID_SOCKET;
         }
 
         //***Connected***
+        // Do activation
+
         // Always make sure there's a '\0' at the end of the buffer
         buffer[BUFFERSIZE - 1] = '\0';
 
@@ -94,11 +96,19 @@ int main(int argc, char *argv[])
             cout << "Enter your serial number: \n";
             getline(cin, serialNumstring);
 
-            iResult = send(theSocket, serialNumstring.c_str(), (int) serialNumstring.size() + 1, 0);
+            iResult = send(clientSocket, serialNumstring.c_str(), (int) serialNumstring.size() + 1, 0);
             if (iResult == SOCKET_ERROR)
             {
                 cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
-                cleanup(theSocket);
+                cleanup(clientSocket);
+                return 1;
+            }
+
+            iResult = send(clientSocket, machineId.c_str(), (int) machineId.size() + 1, 0);
+            if (iResult == SOCKET_ERROR)
+            {
+                cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
+                cleanup(clientSocket);
                 return 1;
             }
 
@@ -142,9 +152,6 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
     }
 
     //***Attempting to connect***
-    // Setup a SOCKADDR_IN structure which will be used to hold address
-    // and port information for the server. Notice that the port must be converted
-    // from host byte order to network byte order.
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
     inet_pton(AF_INET, IPADDRESS, &serverAddr.sin_addr);
