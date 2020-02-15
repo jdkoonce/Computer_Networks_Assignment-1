@@ -25,18 +25,25 @@ using std::cerr;
 
 int initNetworking();
 
-SOCKET makeSocket(SOCKADDR_IN& serverAddr, int port);
+SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port);
 
-void activate(const string machineId);
+string receiveString(SOCKET connection);
 
-string checkSerialActivation(int serialNumber);
+void sendString(SOCKET connection, const string &toSend);
+
+void printTableOutput(const string &serialNumber, const string &machineId, bool serialValid, bool machineIdValid);
 
 void cleanup(SOCKET socket);
 
-int main(int argc, char* argv[])
+void activate(const string &serialNumber, const string &machineId);
+
+string checkSerialActivation(const string &serialNumber);
+
+bool checkSerialValidity(const string &SerialNumber);
+
+int main(int argc, char *argv[])
 {
     SOCKADDR_IN serverAddr;
-    char buffer[BUFFERSIZE];
     int port;
 
     // If user types in a port number on the command line use it,
@@ -70,7 +77,6 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-
     bool listening = true;
 
     while (listening)
@@ -84,87 +90,78 @@ int main(int argc, char* argv[])
             cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
             // Need to close listenSocket; clientConnection never opened
             cleanup(listenSocket);
+            WSACleanup();
             return 1;
         }
 
-        cout << "Connected...\n\n";
+        cout << "Client connected. Awaiting response.\n\n";
 
-        buffer[BUFFERSIZE - 1] = '\0';
         string serialNumber;
         string machineId;
         bool moreData = false;
 
-        do
+        try
         {
-            iResult = recv(clientConnection, buffer, BUFFERSIZE - 1, 0);
+            bool activationProcess;
 
-            if (iResult > 0)
-            {
-                // Received data; need to determine if there's more coming
-                if (buffer[iResult - 1] != '\0')
-                    moreData = true;
-                else
-                    moreData = false;
+            cout << "Waiting for serialNumber...\n";
+            serialNumber = receiveString(clientConnection);
 
-                // Concatenate received data onto end of string we're building
-                serialNumber = serialNumber + (string)buffer;
-            }
-            else if (iResult == 0)
+            auto isValid = checkSerialValidity(serialNumber);
+            if (!isValid)
             {
-                cout << "Connection closed\n";
-                // Need to close clientSocket; listenSocket was already closed
+                printTableOutput(serialNumber, "", false, false);
+                sendString(clientConnection, BADMSG);
                 cleanup(clientConnection);
-                return 0;
+                continue;
+            }
+
+            // Serial was valid, move foward!
+            sendString(clientConnection, GOODMSG);
+
+            cout << "Waiting for machineId...\n";
+            machineId = receiveString(clientConnection);
+
+            // Check activations
+            auto checkedMachineId = checkSerialActivation(serialNumber);
+
+            // If no machine Id was found associated with this serial number
+            if (checkedMachineId.empty())
+            {
+                // Sweet, we can activate it
+                printTableOutput(serialNumber, machineId, true, true);
+                activate(serialNumber, machineId);
+                sendString(clientConnection, GOODMSG);
             }
             else
             {
-                cerr << "Recv failed with error: " << WSAGetLastError() << std::endl;
-                cleanup(clientConnection);
-                return 1;
-            }
-        } while (moreData);
-
-        do
-        {
-            iResult = recv(clientConnection, buffer, BUFFERSIZE - 1, 0);
-
-            if (iResult > 0)
-            {
-                // Received data; need to determine if there's more coming
-                if (buffer[iResult - 1] != '\0')
-                    moreData = true;
+                // Gotta make sure the machine id matches the one the client sent
+                if (checkedMachineId == machineId)
+                {
+                    // Reactivate
+                    printTableOutput(serialNumber, machineId, true, true);
+                    sendString(clientConnection, GOODMSG);
+                }
                 else
-                    moreData = false;
-
-                // Concatenate received data onto end of string we're building
-                machineId = machineId + (string)buffer;
+                {
+                    // Nope, they tried to use a serial on a different machine
+                    printTableOutput(serialNumber, machineId, true, false);
+                    sendString(clientConnection, BADMSG);
+                }
             }
-            else if (iResult == 0)
-            {
-                cout << "Connection closed\n";
-                // Need to close clientSocket; listenSocket was already closed
-                cleanup(clientConnection);
-                return 0;
-            }
-            else
-            {
-                cerr << "Recv failed with error: " << WSAGetLastError() << std::endl;
-                cleanup(clientConnection);
-                return 1;
-            }
-        } while (moreData);
-
-        cout << "Received Serial Number: " << serialNumber << std::endl;
-        cout << "Received Machine Id: " << machineId << std::endl;
+        }
+        catch (string ex)
+        {
+            cerr << ex << std::endl;
+            cleanup(clientConnection);
+            continue;
+            // Exception occurred while talking to the client. Ignore this client and continue listening.
+            // receiveString automatically deals with the connection.
+        }
     }
 
     closesocket(listenSocket);
-
-    string machineIDstring;
-    char machineID[20] = "abd";
-    int serialNumber = 122;
-    bool activation = true;
-
+    WSACleanup();
     return 0;
 }
 
@@ -185,7 +182,7 @@ int initNetworking()
     return 0;
 }
 
-SOCKET makeSocket(SOCKADDR_IN& serverAddr, int port)
+SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
 {
     // Create a new socket for communication with the server
     auto theSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -203,7 +200,7 @@ SOCKET makeSocket(SOCKADDR_IN& serverAddr, int port)
     inet_pton(AF_INET, IPADDRESS, &serverAddr.sin_addr);
 
     // Attempt to bind a the local network address to the socket
-    auto iResult = bind(theSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr));
+    auto iResult = bind(theSocket, (SOCKADDR *) &serverAddr, sizeof(serverAddr));
     if (iResult == SOCKET_ERROR)
     {
         cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
@@ -214,6 +211,60 @@ SOCKET makeSocket(SOCKADDR_IN& serverAddr, int port)
     return theSocket;
 }
 
+string receiveString(SOCKET connection)
+{
+    char buffer[BUFFERSIZE];
+    bool moreData = false;
+    string receiveString;
+
+    buffer[BUFFERSIZE - 1] = '\0';
+
+    do
+    {
+        auto iResult = recv(connection, buffer, BUFFERSIZE - 1, 0);
+
+        if (iResult > 0)
+        {
+            // Received data; need to determine if there's more coming
+            if (buffer[iResult - 1] != '\0')
+                moreData = true;
+            else
+                moreData = false;
+
+            // Concatenate received data onto end of string we're building
+            receiveString = receiveString + (string) buffer;
+        }
+        else if (iResult == 0)
+        {
+            // Need to close clientSocket; listenSocket was already closed
+            throw "Connection closed!\n";
+        }
+        else
+        {
+            throw "Recv failed with error: " + std::to_string(WSAGetLastError()) + "\n";
+        }
+    } while (moreData);
+
+    return receiveString;
+}
+
+void sendString(SOCKET connection, const string &toSend)
+{
+    auto iResult = send(connection, toSend.c_str(), (int) toSend.size() + 1, 0);
+    if (iResult == SOCKET_ERROR)
+    {
+        throw "Send failed with error: " + std::to_string(WSAGetLastError()) + "\n";
+    }
+}
+
+void printTableOutput(const string &serialNumber, const string &machineId, bool serialValid, bool machineIdValid)
+{
+    if (!serialNumber.empty())
+        cout << ("Received SerialNumber: " + serialNumber + "\t\t" + (serialValid ? GOODMSG : BADMSG) + "\n");
+
+    if (!machineId.empty())
+        cout << ("Received MachineId: " + serialNumber + "\t\t" + (machineIdValid ? GOODMSG : BADMSG) + "\n");
+}
 
 /**
  * Cleanup the socket.
@@ -223,8 +274,6 @@ void cleanup(SOCKET socket)
 {
     if (socket != INVALID_SOCKET)
         closesocket(socket);
-
-    WSACleanup();
 }
 
 /**
@@ -232,7 +281,7 @@ void cleanup(SOCKET socket)
  * @param machineId The machineId of the client
  * @param serialNumber The client's serial number
  */
-void activate(int serialNumber, string machineId)
+void activate(const string &serialNumber, const string &machineId)
 {
     std::ofstream dataFile;
     dataFile.open(DATAFILENAME, std::ofstream::out | std::ofstream::app);
@@ -246,16 +295,16 @@ void activate(int serialNumber, string machineId)
 /**
  * Checks if a serialNumber has been activated or not.
  * @param serialNumber The serialNumber that is being checked.
- * @return the machineId or null if the serial hasn't been activated yet.
+ * @return the machineId or an empty string if the serial hasn't been activated yet.
  */
-string checkSerialActivation(string serialNumber)
+string checkSerialActivation(const string &serialNumber)
 {
     std::ifstream dataFile(DATAFILENAME);
     //File doesn't exist, no check needed.
     if (dataFile.fail())
     {
         dataFile.close();
-        return "null";
+        return "";
     }
 
     string contents;
@@ -267,13 +316,24 @@ string checkSerialActivation(string serialNumber)
             contents = line;
             if (contents == serialNumber)
             {
-                getline(dataFile, line);
-                dataFile.close();
-                string machineId = line;
+                string machineId = "";
+
+                // If there is a machineId directly associated with this serialNumber
+                if (getline(dataFile, line))
+                {
+                    dataFile.close();
+                    machineId = line;
+                }
+
                 return machineId;
             }
         }
         dataFile.close();
-        return "NULL";
+        return "";
     }
+}
+
+bool checkSerialValidity(const string &serialNumber)
+{
+    return (serialNumber.find_first_not_of("0123456789") == std::string::npos);
 }

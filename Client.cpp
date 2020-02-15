@@ -26,11 +26,17 @@ int initNetworking();
 
 SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port);
 
-void activate(const string machineId);
+string receiveString(SOCKET connection);
 
-bool checkActivation(const string machineId);
+void sendString(SOCKET connection, const string &toSend);
 
 void cleanup(SOCKET socket);
+
+void activate(const string &machineId);
+
+bool checkActivation(const string &machineId);
+
+void onActivationFailed(SOCKET serverConnection);
 
 string trim(const string &str);
 
@@ -43,6 +49,7 @@ int main(int argc, char *argv[])
     int port;                // server's port number
     bool done;                // variable to control communication loop
     bool moreData;            // variable to control receive data loop
+    SOCKET serverConnection;
 
     // If user types in a port number on the command line use it,
     // otherwise, use the default port number
@@ -74,10 +81,11 @@ int main(int argc, char *argv[])
         }
 
         // Create the socket
-        auto clientSocket = makeSocket(serverAddr, port);
-        if (clientSocket == INVALID_SOCKET)
+        serverConnection = makeSocket(serverAddr, port);
+        if (serverConnection == INVALID_SOCKET)
         {
             cout << "An error occurred while creating a socket! We cannot continue, sorry." << std::endl;
+            WSACleanup();
             return INVALID_SOCKET;
         }
 
@@ -88,37 +96,55 @@ int main(int argc, char *argv[])
         buffer[BUFFERSIZE - 1] = '\0';
 
         done = false;
-        do
+
+        //Get the serial number from the user and send it to the server.
+        cout << "Enter your serial number: \n";
+        getline(cin, serialNumstring);
+
+        try
         {
-            // SEND and then RECV
+            sendString(serverConnection, serialNumstring);
 
-            //Get the serial number from the user and send it to the server.
-            cout << "Enter your serial number: \n";
-            getline(cin, serialNumstring);
-
-            iResult = send(clientSocket, serialNumstring.c_str(), (int) serialNumstring.size() + 1, 0);
-            if (iResult == SOCKET_ERROR)
+            auto serialResponse = receiveString(serverConnection);
+            if (serialResponse != GOODMSG)
             {
-                cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
-                cleanup(clientSocket);
-                return 1;
+                // Oops.
+                onActivationFailed(serverConnection);
+                return 0;
             }
 
-            iResult = send(clientSocket, machineId.c_str(), (int) machineId.size() + 1, 0);
-            if (iResult == SOCKET_ERROR)
+            sendString(serverConnection, machineId);
+
+            auto activationResponse = receiveString(serverConnection);
+            if (activationResponse != GOODMSG)
             {
-                cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
-                cleanup(clientSocket);
-                return 1;
+                // Oops.
+                onActivationFailed(serverConnection);
+                return 0;
             }
 
-        } while (!done);
+            // We're good to go!
+            activate(machineId);
+            cout << "The client has been successfully activated!" << std::endl;
+        }
+        catch (string ex)
+        {
+            cerr << ex << std::endl;
+            // We weren't able to communicate with the server for some reason. Let's cleanup and leave.
+
+            cleanup(serverConnection);
+            WSACleanup();
+            return 0;
+        }
     }
     else
     {
-        cout << "The client is already activated!" << std::endl;
+        cout << "The client is already activated." << std::endl;
+        return 0;
     }
 
+    cleanup(serverConnection);
+    WSACleanup();
     return 0;
 }
 
@@ -168,6 +194,52 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
     return theSocket;
 }
 
+string receiveString(SOCKET connection)
+{
+    char buffer[BUFFERSIZE];
+    bool moreData = false;
+    string receiveString;
+
+    buffer[BUFFERSIZE - 1] = '\0';
+
+    do
+    {
+        auto iResult = recv(connection, buffer, BUFFERSIZE - 1, 0);
+
+        if (iResult > 0)
+        {
+            // Received data; need to determine if there's more coming
+            if (buffer[iResult - 1] != '\0')
+                moreData = true;
+            else
+                moreData = false;
+
+            // Concatenate received data onto end of string we're building
+            receiveString = receiveString + (string) buffer;
+        }
+        else if (iResult == 0)
+        {
+            // Need to close clientSocket; listenSocket was already closed
+            throw "Connection closed!\n";
+        }
+        else
+        {
+            throw "Recv failed with error: " + std::to_string(WSAGetLastError()) + "\n";
+        }
+    } while (moreData);
+
+    return receiveString;
+}
+
+void sendString(SOCKET connection, const string &toSend)
+{
+    auto iResult = send(connection, toSend.c_str(), (int) toSend.size() + 1, 0);
+    if (iResult == SOCKET_ERROR)
+    {
+        throw "Send failed with error: " + std::to_string(WSAGetLastError()) + "\n";
+    }
+}
+
 /**
  * Cleanup the socket.
  * @param socket
@@ -176,16 +248,28 @@ void cleanup(SOCKET socket)
 {
     if (socket != INVALID_SOCKET)
         closesocket(socket);
-
-    WSACleanup();
 }
+
+/**
+ * Activates the client.
+ * @param machineId
+ * @return
+ */
+void activate(const string &machineId)
+{
+    std::ofstream actFile;
+    actFile.open("actFile.txt", std::ofstream::out | std::ofstream::trunc);
+    actFile << machineId;
+    actFile.close();
+}
+
 
 /**
  * Checks if the client has been activated or not.
  * @param machineId
  * @return
  */
-bool checkActivation(const string machineId)
+bool checkActivation(const string &machineId)
 {
     std::ifstream actFile(ACTIVATIONFILENAME);
 
@@ -216,17 +300,11 @@ bool checkActivation(const string machineId)
     return false;
 }
 
-/**
- * Activates the client.
- * @param machineId
- * @return
- */
-void activate(const string machineId)
+void onActivationFailed(SOCKET serverConnection)
 {
-    std::ofstream actFile;
-    actFile.open("actFile.txt", std::ofstream::out | std::ofstream::trunc);
-    actFile << machineId;
-    actFile.close();
+    cout << "The activation was not successful.\n";
+    cleanup(serverConnection);
+    WSACleanup();
 }
 
 /**
