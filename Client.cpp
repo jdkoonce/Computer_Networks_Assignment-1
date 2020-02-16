@@ -20,24 +20,55 @@ using std::cerr;
 #define BAD_MSG "invalid"
 #define DEFAULT_PORT 6000
 
-
-// Function to close the specified socket and perform DLL cleanup (WSACleanup)
+/**
+ * Initializes WSA for networking.
+ */
 int initNetworking();
 
+/**
+ * Makes a socket, and connects it to the server address and port provided.
+ */
 SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port);
 
+/**
+ * Receives a string from the connection. (blocking)
+ * @return The string the connection provided.
+ */
 string receiveString(SOCKET connection);
 
+/**
+ * Sends a string to the connection. (blocking)
+ */
 void sendString(SOCKET connection, const string &toSend);
 
+/**
+ * Performs cleanup actions and then closes the socket provided.
+ */
 void cleanup(SOCKET socket);
 
+/**
+ * Activates the provided machineId.
+ */
 void activate(const string &machineId);
 
+/**
+ * Checks whether the machineId has been activated or not.
+ * @param machineId
+ * @return True if the machineId has been activated, false if it hasn't.
+ */
 bool checkActivation(const string &machineId);
 
+/**
+ * Called when the server declines our activation request.
+ * @param serverConnection The connection to the server
+ */
 void onActivationFailed(SOCKET serverConnection);
 
+/**
+ * Trims whitespace from the front and back of the string.
+ * @param str The string to be trimmed
+ * @return The trimmed string
+ */
 string trim(const string &str);
 
 int main(int argc, char *argv[])
@@ -145,9 +176,6 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-/**
- * Initializes WSA for networking.
- */
 int initNetworking()
 {
     // WSAStartup loads WS2_32.dll (Winsock version 2.2) used in network programming
@@ -234,21 +262,12 @@ void sendString(SOCKET connection, const string &toSend)
     }
 }
 
-/**
- * Cleanup the socket.
- * @param socket
- */
 void cleanup(SOCKET socket)
 {
     if (socket != INVALID_SOCKET)
         closesocket(socket);
 }
 
-/**
- * Activates the client.
- * @param machineId
- * @return
- */
 void activate(const string &machineId)
 {
     std::ofstream actFile;
@@ -257,11 +276,6 @@ void activate(const string &machineId)
     actFile.close();
 }
 
-/**
- * Checks if the client has been activated or not.
- * @param machineId
- * @return
- */
 bool checkActivation(const string &machineId)
 {
     std::ifstream actFile(ACTIVATION_FILENAME);
@@ -300,11 +314,6 @@ void onActivationFailed(SOCKET serverConnection)
     WSACleanup();
 }
 
-/**
- * Removes whitespace from both ends of a string.
- * @param str
- * @return
- */
 string trim(const string &str)
 {
     size_t first = str.find_first_not_of(' ');

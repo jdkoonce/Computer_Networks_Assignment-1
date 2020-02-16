@@ -20,25 +20,59 @@ using std::cerr;
 #define BAD_MSG "invalid"
 #define DEFAULT_PORT 6000
 
-
-// Function to close the specified socket and perform DLL cleanup (WSACleanup)
-
+/**
+ * Initializes WSA for networking.
+ */
 int initNetworking();
 
+/**
+ * Makes a socket, and binds it to the server address and port provided.
+ */
 SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port);
 
+/**
+ * Receives a string from the connection. (blocking)
+ * @param connection
+ * @return The string the connection provided.
+ */
 string receiveString(SOCKET connection);
 
+/**
+ * Sends a string to the connection. (blocking)
+ */
 void sendString(SOCKET connection, const string &toSend);
 
-void printTableOutput(const string &serialNumber, const string &machineId, bool serialValid, bool machineIdValid);
-
+/**
+ * Performs cleanup actions and then closes the socket provided.
+ */
 void cleanup(SOCKET socket);
 
+/**
+ * Prints a table that shows whether a serialNumber and machineId are valid or not.
+ * @param serialNumber The serial number to display
+ * @param machineId  The machineId to display
+ * @param serialValid Is this serial valid?
+ * @param machineIdValid Is this machineId valid?
+ */
+void printTableOutput(const string &serialNumber, const string &machineId, bool serialValid, bool machineIdValid);
+
+/**
+ * Activates the provided serialNumber and ties it to the provided machineId.
+ */
 void activate(const string &serialNumber, const string &machineId);
 
+/**
+ * Checks whether this serialNumber has been activated or not.
+ * @param serialNumber
+ * @return The machineId this serialNumber is attached to, or an empty string if the serialNumber hasn't been activated.
+ */
 string checkSerialActivation(const string &serialNumber);
 
+/**
+ * Checks whether this serialNumber is valid or not. (Whether it meets the criteria for validation or not)
+ * @param SerialNumber
+ * @return True if it is valid, false is it isn't.
+ */
 bool checkSerialValidity(const string &SerialNumber);
 
 int main(int argc, char *argv[])
@@ -158,9 +192,6 @@ int main(int argc, char *argv[])
     // Server never closes naturally, just a factor of life
 }
 
-/**
- * Initializes WSA for networking.
- */
 int initNetworking()
 {
     // WSAStartup loads WS2_32.dll (Winsock version 2.2) used in network programming
@@ -256,21 +287,12 @@ void printTableOutput(const string &serialNumber, const string &machineId, bool 
         cout << ("Received MachineId: " + machineId + "\t\t" + (machineIdValid ? GOOD_MSG : BAD_MSG) + "\n");
 }
 
-/**
- * Cleanup the socket.
- * @param socket
- */
 void cleanup(SOCKET socket)
 {
     if (socket != INVALID_SOCKET)
         closesocket(socket);
 }
 
-/**
- * Activates a client.
- * @param machineId The machineId of the client
- * @param serialNumber The client's serial number
- */
 void activate(const string &serialNumber, const string &machineId)
 {
     std::ofstream dataFile;
@@ -282,11 +304,6 @@ void activate(const string &serialNumber, const string &machineId)
     dataFile.close();
 }
 
-/**
- * Checks if a serialNumber has been activated or not.
- * @param serialNumber The serialNumber that is being checked.
- * @return the machineId or an empty string if the serial hasn't been activated yet.
- */
 string checkSerialActivation(const string &serialNumber)
 {
     std::ifstream dataFile(DATAFILENAME);
