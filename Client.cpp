@@ -129,35 +129,45 @@ int main(int argc, char *argv[])
             WSACleanup();
             return 1;
         }
-        else {
-                cout << "\n Contacting Activation Server...\n";
-                sendString(serverConnection, serialNumstring);
 
-                auto serialResponse = receiveString(serverConnection);
-                if (serialResponse != GOOD_MSG)
-                {
-                    // Oops.
-                    onActivationFailed(serverConnection);
-                    return 0;
-                }
+        try
+        {
+            cout << "\n Contacting Activation Server...\n";
+            sendString(serverConnection, serialNumstring);
 
-                sendString(serverConnection, machineId);
-
-                auto activationResponse = receiveString(serverConnection);
-                if (activationResponse != GOOD_MSG)
-                {
-                    // Oops.
-                    onActivationFailed(serverConnection);
-                    return 0;
-                }
-                else {
-                    activate(machineId);
-                    cout << "The client has been successfully activated!" << std::endl;
-                    return 0;
-                }
-                
+            auto serialResponse = receiveString(serverConnection);
+            if (serialResponse != GOOD_MSG)
+            {
+                // Oops.
+                onActivationFailed(serverConnection);
+                return 0;
             }
-           
+
+            sendString(serverConnection, machineId);
+
+            auto activationResponse = receiveString(serverConnection);
+            if (activationResponse != GOOD_MSG)
+            {
+                // Oops.
+                onActivationFailed(serverConnection);
+                return 0;
+            }
+            else
+            {
+                activate(machineId);
+                cout << "The client has been successfully activated!" << std::endl;
+                return 0;
+            }
+        }
+        catch (std::exception &ex)
+        {
+            cerr << ex.what() << std::endl;
+            // We weren't able to communicate with the server for some reason. Let's cleanup and leave.
+
+            cleanup(serverConnection);
+            WSACleanup();
+            return 0;
+        }
     }
     else
     {
