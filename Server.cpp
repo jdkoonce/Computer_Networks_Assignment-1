@@ -69,7 +69,7 @@ void activate(const string &serialNumber, const string &machineId);
 string checkSerialActivation(const string &serialNumber);
 
 /**
- * Checks whether this serialNumber is valid or not. (Whether it meets the criteria for validation or not)
+ * Checks whether this serialNumber is valid or not. (Valid serialNumbers must ONLY contain numerical values)
  * @param SerialNumber
  * @return True if it is valid, false is it isn't.
  */
@@ -113,7 +113,8 @@ int main(int argc, char *argv[])
 
     while (true)
     {
-        cout << "\nWaiting for connections...\n";
+        cout << "Activation Server\nRunning on port number " << port;
+        cout << "\n\nWaiting for connections...\n";
 
         // Accept an incoming connection; Program pauses here until a connection arrives
         auto clientConnection = accept(listenSocket, nullptr, nullptr);

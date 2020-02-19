@@ -101,7 +101,8 @@ int main(int argc, char *argv[])
     //Run the activation check
     if (!checkActivation(machineId))
     {
-        cout << "Activation is required." << std::endl;
+        cout << "\nActivation is required." << std::endl;
+        cout << "\nYou must activate the program to continue using it." << std::endl;
 
         // Initialize WSA networking
         auto initCode = initNetworking();
@@ -128,42 +129,38 @@ int main(int argc, char *argv[])
             WSACleanup();
             return 1;
         }
+        else {
+                cout << "\n Contacting Activation Server...\n";
+                sendString(serverConnection, serialNumstring);
 
-        try
-        {
-            sendString(serverConnection, serialNumstring);
+                auto serialResponse = receiveString(serverConnection);
+                if (serialResponse != GOOD_MSG)
+                {
+                    // Oops.
+                    onActivationFailed(serverConnection);
+                    return 0;
+                }
 
-            auto serialResponse = receiveString(serverConnection);
-            if (serialResponse != GOOD_MSG)
-            {
-                // Oops.
-                onActivationFailed(serverConnection);
-                return 0;
+                sendString(serverConnection, machineId);
+
+                auto activationResponse = receiveString(serverConnection);
+                if (activationResponse != GOOD_MSG)
+                {
+                    // Oops.
+                    onActivationFailed(serverConnection);
+                    return 0;
+                }
+                else {
+                    activate(machineId);
+                    return 0;
+                }
+
+
+                // We're good to go!
+                activate(machineId);
+                cout << "The client has been successfully activated!" << std::endl;
             }
-
-            sendString(serverConnection, machineId);
-
-            auto activationResponse = receiveString(serverConnection);
-            if (activationResponse != GOOD_MSG)
-            {
-                // Oops.
-                onActivationFailed(serverConnection);
-                return 0;
-            }
-
-            // We're good to go!
-            activate(machineId);
-            cout << "The client has been successfully activated!" << std::endl;
-        }
-        catch (std::exception &ex)
-        {
-            cerr << ex.what() << std::endl;
-            // We weren't able to communicate with the server for some reason. Let's cleanup and leave.
-
-            cleanup(serverConnection);
-            WSACleanup();
-            return 0;
-        }
+           
     }
     else
     {
@@ -211,7 +208,7 @@ SOCKET makeSocket(SOCKADDR_IN &serverAddr, int port)
     auto iResult = connect(theSocket, (SOCKADDR *) &serverAddr, sizeof(serverAddr));
     if (iResult == SOCKET_ERROR)
     {
-        cerr << "Connect failed with error: " << WSAGetLastError() << std::endl;
+        cerr << "Connection failed with error: " << WSAGetLastError() << std::endl;
         cleanup(theSocket);
         return INVALID_SOCKET;
     }
