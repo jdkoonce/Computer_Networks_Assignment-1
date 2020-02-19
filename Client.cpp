@@ -152,13 +152,10 @@ int main(int argc, char *argv[])
                 }
                 else {
                     activate(machineId);
+                    cout << "The client has been successfully activated!" << std::endl;
                     return 0;
                 }
-
-
-                // We're good to go!
-                activate(machineId);
-                cout << "The client has been successfully activated!" << std::endl;
+                
             }
            
     }
